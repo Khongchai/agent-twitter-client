@@ -95,19 +95,28 @@ async function requestApi(url, auth, method = "GET", platform = new Platform(), 
     }
     await updateCookieJar(auth.cookieJar(), res.headers);
     if (res.status === 429) {
-      const xRateLimitRemaining = res.headers.get("x-rate-limit-remaining");
-      const xRateLimitReset = res.headers.get("x-rate-limit-reset");
-      if (xRateLimitRemaining == "0" && xRateLimitReset) {
+      const xRateLimitRemaining2 = res.headers.get("x-rate-limit-remaining");
+      const xRateLimitReset2 = res.headers.get("x-rate-limit-reset");
+      if (xRateLimitRemaining2 == "0" && xRateLimitReset2) {
         const currentTime = (/* @__PURE__ */ new Date()).valueOf() / 1e3;
-        const timeDeltaMs = 1e3 * (parseInt(xRateLimitReset) - currentTime);
+        const timeDeltaMs = 1e3 * (parseInt(xRateLimitReset2) - currentTime);
         await new Promise((resolve) => setTimeout(resolve, timeDeltaMs));
       }
     }
   } while (res.status === 429);
+  const xRateLimitRemaining = res.headers.get("x-rate-limit-remaining");
+  const xRateLimitReset = res.headers.get("x-rate-limit-reset");
+  const meta = {
+    rateLimit: {
+      remaining: xRateLimitRemaining ? parseInt(xRateLimitRemaining) : void 0,
+      reset: xRateLimitReset ? parseInt(xRateLimitReset) : void 0
+    }
+  };
   if (!res.ok) {
     return {
       success: false,
-      err: await ApiError.fromResponse(res)
+      err: await ApiError.fromResponse(res),
+      meta
     };
   }
   const transferEncoding = res.headers.get("transfer-encoding");
@@ -120,12 +129,13 @@ async function requestApi(url, auth, method = "GET", platform = new Platform(), 
           const value = JSON.parse(text);
           return { success: true, value };
         } catch (e) {
-          return { success: true, value: { text } };
+          return { success: true, value: { text }, meta };
         }
       } catch (e) {
         return {
           success: false,
-          err: new Error("No readable stream available and cant parse")
+          err: new Error("No readable stream available and cant parse"),
+          meta
         };
       }
     }
@@ -137,9 +147,9 @@ async function requestApi(url, auth, method = "GET", platform = new Platform(), 
     }
     try {
       const value = JSON.parse(chunks);
-      return { success: true, value };
+      return { success: true, value, meta };
     } catch (e) {
-      return { success: true, value: { text: chunks } };
+      return { success: true, value: { text: chunks }, meta };
     }
   }
   const contentType = res.headers.get("content-type");
@@ -148,9 +158,9 @@ async function requestApi(url, auth, method = "GET", platform = new Platform(), 
     if (res.headers.get("x-rate-limit-incoming") == "0") {
       auth.deleteToken();
     }
-    return { success: true, value };
+    return { success: true, value, meta };
   }
-  return { success: true, value: {} };
+  return { success: true, value: {}, meta };
 }
 function addApiFeatures(o) {
   return {
@@ -1305,7 +1315,12 @@ function parseSearchTimelineTweets(timeline) {
       }
     }
   }
-  return { tweets, next: bottomCursor, previous: topCursor };
+  return {
+    tweets,
+    next: bottomCursor,
+    previous: topCursor,
+    meta: timeline.meta
+  };
 }
 function parseSearchTimelineUsers(timeline) {
   let bottomCursor;
@@ -1439,7 +1454,7 @@ async function getSearchTimeline(query, maxItems, searchMode, auth, cursor) {
   if (!res.success) {
     throw res.err;
   }
-  return res.value;
+  return { ...res.value, meta: res.meta };
 }
 async function fetchQuotedTweetsPage(quotedTweetId, maxTweets, auth, cursor) {
   if (maxTweets > 50) {
@@ -3782,7 +3797,8 @@ class Scraper {
     const timelineV2 = parseTimelineTweetsV2(res.value);
     return {
       tweets: timelineV2.tweets,
-      next: timelineV2.next
+      next: timelineV2.next,
+      meta: res.meta
     };
   }
   async *getUserTweetsIterator(userId, maxTweets = 200) {

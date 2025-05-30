@@ -20,6 +20,12 @@ interface FetchTransformOptions {
      */
     response: (response: Response) => Response | Promise<Response>;
 }
+type RequestApiMetadata = {
+    rateLimit?: {
+        remaining?: number;
+        reset?: number;
+    };
+};
 
 /**
  * A parsed profile object.
@@ -158,6 +164,7 @@ interface QueryTweetsResponse {
     tweets: Tweet[];
     next?: string;
     previous?: string;
+    meta?: RequestApiMetadata;
 }
 /**
  * A paginated profiles API response. The `next` field can be used to fetch the next page of results.
@@ -655,6 +662,7 @@ declare class Scraper {
     getUserTweets(userId: string, maxTweets?: number, cursor?: string): Promise<{
         tweets: Tweet[];
         next?: string;
+        meta?: RequestApiMetadata;
     }>;
     getUserTweetsIterator(userId: string, maxTweets?: number): AsyncGenerator<Tweet, void>;
     /**
