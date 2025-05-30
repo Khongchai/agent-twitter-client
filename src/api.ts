@@ -77,11 +77,12 @@ export async function requestApi<T>(
     }
     return {
       success: false,
-      err: new Error('Failed to perform request.'),
+      err,
     };
   }
 
   await updateCookieJar(auth.cookieJar(), res.headers);
+
   /*
       Known headers at this point:
       - x-rate-limit-limit: Maximum number of requests per time period?
