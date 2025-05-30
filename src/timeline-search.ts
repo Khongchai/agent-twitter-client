@@ -1,3 +1,4 @@
+import { RequestApiMetadata } from './api';
 import { Profile, parseProfile } from './profile';
 import { QueryProfilesResponse, QueryTweetsResponse } from './timeline-v1';
 import { SearchEntryRaw, parseLegacyTweet } from './timeline-v2';
@@ -17,6 +18,7 @@ export interface SearchTimeline {
       };
     };
   };
+  meta?: RequestApiMetadata;
 }
 
 export function parseSearchTimelineTweets(
@@ -70,7 +72,12 @@ export function parseSearchTimelineTweets(
     }
   }
 
-  return { tweets, next: bottomCursor, previous: topCursor };
+  return {
+    tweets,
+    next: bottomCursor,
+    previous: topCursor,
+    meta: timeline.meta,
+  };
 }
 
 export function parseSearchTimelineUsers(

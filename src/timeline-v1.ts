@@ -1,3 +1,4 @@
+import { RequestApiMetadata } from './api';
 import { LegacyUserRaw, parseProfile, Profile } from './profile';
 import { parseMediaGroups, reconstructTweetHtml } from './timeline-tweet-util';
 import { PlaceRaw, Tweet } from './tweets';
@@ -411,6 +412,7 @@ export interface QueryTweetsResponse {
   tweets: Tweet[];
   next?: string;
   previous?: string;
+  meta?: RequestApiMetadata;
 }
 
 export function parseTimelineTweetsV1(

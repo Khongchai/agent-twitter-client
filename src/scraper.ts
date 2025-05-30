@@ -3,6 +3,7 @@ import {
   bearerToken,
   FetchTransformOptions,
   requestApi,
+  RequestApiMetadata,
   RequestApiResult,
 } from './api';
 import { TwitterAuth, TwitterAuthOptions, TwitterGuestAuth } from './auth';
@@ -342,7 +343,7 @@ export class Scraper {
     userId: string,
     maxTweets = 200,
     cursor?: string,
-  ): Promise<{ tweets: Tweet[]; next?: string }> {
+  ): Promise<{ tweets: Tweet[]; next?: string; meta?: RequestApiMetadata }> {
     if (maxTweets > 200) {
       maxTweets = 200;
     }
@@ -408,6 +409,7 @@ export class Scraper {
     return {
       tweets: timelineV2.tweets,
       next: timelineV2.next,
+      meta: res.meta,
     };
   }
 

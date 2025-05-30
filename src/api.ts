@@ -32,12 +32,18 @@ export interface FetchTransformOptions {
 export const bearerToken =
   'AAAAAAAAAAAAAAAAAAAAAFQODgEAAAAAVHTp76lzh3rFzcHbmHVvQxYYpTw%3DckAlMINMjmCwxUcaXbAN4XqJVdgMJaHqNOFgPMK0zN1qLqLQCF';
 
+export type RequestApiMetadata = {
+  rateLimit?: {
+    remaining?: number;
+    reset?: number;
+  };
+};
 /**
  * An API result container.
  */
 export type RequestApiResult<T> =
-  | { success: true; value: T }
-  | { success: false; err: Error };
+  | { success: true; value: T; meta?: RequestApiMetadata }
+  | { success: false; err: Error; meta?: RequestApiMetadata };
 
 /**
  * Used internally to send HTTP requests to the Twitter API.
@@ -97,10 +103,22 @@ export async function requestApi<T>(
     }
   } while (res.status === 429);
 
+  const xRateLimitRemaining = res.headers.get('x-rate-limit-remaining');
+  const xRateLimitReset = res.headers.get('x-rate-limit-reset');
+  const meta: RequestApiMetadata = {
+    rateLimit: {
+      remaining: xRateLimitRemaining
+        ? parseInt(xRateLimitRemaining)
+        : undefined,
+      reset: xRateLimitReset ? parseInt(xRateLimitReset) : undefined,
+    },
+  };
+
   if (!res.ok) {
     return {
       success: false,
       err: await ApiError.fromResponse(res),
+      meta,
     };
   }
 
@@ -108,7 +126,8 @@ export async function requestApi<T>(
   const transferEncoding = res.headers.get('transfer-encoding');
   if (transferEncoding === 'chunked') {
     // Handle streaming response, if a reader is present
-    const reader = typeof res.body?.getReader === 'function' ? res.body.getReader() : null;
+    const reader =
+      typeof res.body?.getReader === 'function' ? res.body.getReader() : null;
     if (!reader) {
       try {
         const text = await res.text();
@@ -117,12 +136,13 @@ export async function requestApi<T>(
           return { success: true, value };
         } catch (e) {
           // Return if just a normal string
-          return { success: true, value: { text } as any };
+          return { success: true, value: { text } as any, meta };
         }
       } catch (e) {
         return {
           success: false,
           err: new Error('No readable stream available and cant parse'),
+          meta,
         };
       }
     }
@@ -144,11 +164,11 @@ export async function requestApi<T>(
     try {
       // console.log('attempting to parse chunks', chunks);
       const value = JSON.parse(chunks);
-      return { success: true, value };
+      return { success: true, value, meta };
     } catch (e) {
       // console.log('parsing chunks failed, sending as raw text');
       // If we can't parse as JSON, return the raw text
-      return { success: true, value: { text: chunks } as any };
+      return { success: true, value: { text: chunks } as any, meta };
     }
   }
 
@@ -159,10 +179,10 @@ export async function requestApi<T>(
     if (res.headers.get('x-rate-limit-incoming') == '0') {
       auth.deleteToken();
     }
-    return { success: true, value };
+    return { success: true, value, meta };
   }
 
-  return { success: true, value: {} as T };
+  return { success: true, value: {} as T, meta };
 }
 
 /** @internal */

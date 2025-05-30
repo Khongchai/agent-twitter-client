@@ -151,7 +151,7 @@ async function getSearchTimeline(
     throw res.err;
   }
 
-  return res.value;
+  return { ...res.value, meta: res.meta };
 }
 
 /**
