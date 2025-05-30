@@ -64,45 +64,30 @@ export async function requestApi<T>(
   await platform.randomizeCiphers();
 
   let res: Response;
-  do {
-    try {
-      res = await auth.fetch(url, {
-        method,
-        headers,
-        credentials: 'include',
-        ...(body && { body: JSON.stringify(body) }),
-      });
-    } catch (err) {
-      if (!(err instanceof Error)) {
-        throw err;
-      }
-      return {
-        success: false,
-        err: new Error('Failed to perform request.'),
-      };
+  try {
+    res = await auth.fetch(url, {
+      method,
+      headers,
+      credentials: 'include',
+      ...(body && { body: JSON.stringify(body) }),
+    });
+  } catch (err) {
+    if (!(err instanceof Error)) {
+      throw err;
     }
+    return {
+      success: false,
+      err: new Error('Failed to perform request.'),
+    };
+  }
 
-    await updateCookieJar(auth.cookieJar(), res.headers);
-
-    if (res.status === 429) {
-      /*
+  await updateCookieJar(auth.cookieJar(), res.headers);
+  /*
       Known headers at this point:
       - x-rate-limit-limit: Maximum number of requests per time period?
       - x-rate-limit-reset: UNIX timestamp when the current rate limit will be reset.
       - x-rate-limit-remaining: Number of requests remaining in current time period?
       */
-      const xRateLimitRemaining = res.headers.get('x-rate-limit-remaining');
-      const xRateLimitReset = res.headers.get('x-rate-limit-reset');
-      if (xRateLimitRemaining == '0' && xRateLimitReset) {
-        const currentTime = new Date().valueOf() / 1000;
-        const timeDeltaMs = 1000 * (parseInt(xRateLimitReset) - currentTime);
-
-        // I have seen this block for 800s (~13 *minutes*)
-        await new Promise((resolve) => setTimeout(resolve, timeDeltaMs));
-      }
-    }
-  } while (res.status === 429);
-
   const xRateLimitRemaining = res.headers.get('x-rate-limit-remaining');
   const xRateLimitReset = res.headers.get('x-rate-limit-reset');
   const meta: RequestApiMetadata = {
